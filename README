@@ -1,0 +1,77 @@
+Project GumbyBRAIN
+==================
+
+GumbyBRAIN started as a vague experiment to test POE::Component::AI::MegaHAL and to
+see if it was possible to write a self-loading POE::Component::IRC plugin.
+
+It is dependent on the following modules:
+
+POE::Component::IRC
+POE::Component::AI::MegaHAL
+
+The best way to install these is through CPAN or CPANPLUS.
+
+More information about MegaHAL is available from:
+
+<http://megahal.alioth.debian.org/>
+
+There are some training files available at: 
+
+<http://megahal.alioth.debian.org/download/old/>
+
+This distribution includes a training file which is a collection which is an amalgamation
+of various training files from the above link.
+
+You are welcome to roll your own. Simply name it as megahal.trn, delete megahal.dic and megahal.brn
+and start again.
+
+What it does:
+=============
+
+The bot joins any number of configurable IRC networks and channels on those networks.
+
+It takes any irc_public messages and irc_ctcp_action messages and feeds them into the megahal and
+ignores the replies from megahal.
+
+If someone 'addresses' the bot in a channel, it will send the megahal reply to the channel.
+If someone performs a ctcp action on a channel that mentions the bot's nickname it will respond.
+
+If someone sends a private message to the bot, it will respond with a NOTICE reply to the sender.
+
+The bot will also join a private channel of it's own, "#<nickname>" where <nickname> is the bot's
+nickname.
+
+On the bot's private channel it will respond to all channel traffic with whatever the megahal replies
+are. 
+
+Installation:
+=============
+
+Install the required perl modules and edit genconfig.pl to taste.
+
+The basic format of the hashref in genconfig.pl is:
+
+{ 
+  'irc_network' => { channels => [ qw(#chan1 #chan2 #chan3) ] },
+  'settings' => { nick => 'botnickname' },
+}
+
+Each key is an irc server address. The 'settings' key MUST contain a nickname for the bot.
+
+If the irc server is a quakenet.org server, then you'll probably need to also specify 'qauth' and 'qpass'
+values for authenticating with Qnet's Q bot.
+
+perl genconfig.pl
+
+This should create the necessary GumbyBRAIN.sto file to enable booting.
+
+perl bootstrap.pl 
+
+This will run the bot.
+
+The bot employs POE::Component::IRC::Plugin::Connector to stay glued to IRC networks.
+
+Support:
+=======
+
+There is *no* support for this 'product'.
