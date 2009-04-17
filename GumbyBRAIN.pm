@@ -3,15 +3,18 @@ package GumbyBRAIN;
 use strict;
 use warnings;
 use Data::Dumper;
-use POE::Component::AI::MegaHAL;
 use Qauth;
+use POEKnee;
+use POE::Component::AI::MegaHAL;
 use POE qw(Wheel::Run Filter::Line);
-use POE::Component::IRC 4.79;
+use POE::Component::IRC::State;
+use POE::Component::IRC::Common qw(:ALL);
 use POE::Component::IRC::Plugin qw( :ALL );
 use POE::Component::IRC::Plugin::BotAddressed;
 use POE::Component::IRC::Plugin::Connector;
+use POE::Component::IRC::Plugin::CTCP;
 
-our $VERSION = '1.012345';
+our $VERSION = '1.10';
 
 sub spawn {
   my $package = shift;
@@ -21,7 +24,6 @@ sub spawn {
   my $settings = delete $self->{config}->{settings};
   die "No settings specified\n" unless $settings or ref( $settings ) eq 'HASH';
   $self->{nickname} = delete $settings->{nick};
-  $self->{localaddr} = delete $settings->{localaddr};
   die "No nickname specified\n" unless $self->{nickname};
 
   $self->{fucktards} = { };
@@ -29,7 +31,7 @@ sub spawn {
   $self->{initial} = __PACKAGE__ . "-" . $VERSION;
 
   foreach my $network ( keys %{ $self->{config} } ) {
-     $self->{irc}->{ $network } = POE::Component::IRC->spawn( alias => $network, nick => $self->{nickname}, server => $network, ircname => $self->{initial}, localaddr => $self->{localaddr} ); 
+     $self->{irc}->{ $network } = POE::Component::IRC::State->spawn( alias => $network, nick => $self->{nickname}, server => $network, ircname => $self->{initial}, password => $self->{config}->{ $network }->{password} ); 
   }
   $self->{megahal} = POE::Component::AI::MegaHAL->spawn( alias => 'megahal', autosave => 1, options => { trace => 0 } );
 
@@ -56,6 +58,8 @@ sub _start {
      $irc->plugin_add( 'MehSelf', $self );
      $irc->plugin_add( 'Connector', POE::Component::IRC::Plugin::Connector->new() );
      $irc->plugin_add( 'BotAddressed', POE::Component::IRC::Plugin::BotAddressed->new() );
+     $irc->plugin_add( 'CTCP', POE::Component::IRC::Plugin::CTCP->new( version => join(" ", $self->{initial}, "POE::Component::IRC-$POE::Component::IRC::VERSION", "POE-$POE::VERSION" ) ) );
+     $irc->plugin_add( 'POEKnee', POEKnee->new() );
      if ( $network =~ /quakenet\.org$/ ) {
        $irc->plugin_add( 'Qauth', Qauth->new( qauth => $self->{config}->{ $network }->{qauth}, qpass => $self->{config}->{ $network }->{qpass} ) );
      }
@@ -125,7 +129,7 @@ sub _sig_int {
      $irc->yield( 'shutdown' );
   }
   $kernel->post( 'megahal' => _cleanup => { event => '_brain_saved' } );
-  $self->{wheel}->kill();
+  $self->{wheel}->kill() if $self->{wheel};
   $kernel->sig( 'HUP' );
   $kernel->sig( 'INT' );
   $kernel->sig_handled();
@@ -162,11 +166,10 @@ sub PCI_unregister {
 sub S_001 {
   my ($self,$irc) = splice @_, 0, 2;
 
+  print STDOUT "Connected to ", ${ $_[0] }, "\n";
   my $alias = ( $poe_kernel->alias_list( $irc->{session_id} ) )[0];
   $irc->yield( join => "#" . $self->{nickname} );
-  foreach my $channel ( @{ $self->{config}->{ $alias }->{channels} } ) {
-    $irc->yield( join => $channel );
-  }
+  $irc->yield( join => $_ ) for @{ $self->{config}->{ $alias }->{channels} };
   return PCI_EAT_NONE;
 }
 
@@ -190,9 +193,11 @@ sub _reply_notice {
   my ($self,$reply) = @_[OBJECT,ARG0];
 
   my $text = delete $reply->{reply};
+  $text = fix_text( $text );
   my $who = delete $reply->{_who};
   my $irc = delete $reply->{_irc};
   if ( $text and $who and $irc ) {
+	$text =~ s/DCC send/cock badger/gi;
 	$poe_kernel->post( $irc => notice => $who => $text );
   }
   undef;
@@ -202,23 +207,23 @@ sub _reply_addressed {
   my ($self,$reply) = @_[OBJECT,ARG0];
 
   my $text = delete $reply->{reply};
+  $text = fix_text( $text );
   my $who = delete $reply->{_who};
   return if ( lc ( $who ) eq 'purl' );
   my $where = delete $reply->{_where};
   my $irc = delete $reply->{_irc};
   if ( $who and $where ) {
-	my $key = "$where,$who";
+	my $key = "$irc,$where,$who";
 	my $last = delete $self->{fucktards}->{ $key };
 	$self->{fucktards}->{ $key } = time();
-	if ( $last and ( time() - $last < 60 ) ) {
-		return;
-	}
+	return if $last and ( time() - $last < 60 );
   }
   if ( $text and $who and $irc ) {
 	if ( $text =~ m/^.+?:\s(.*)$/i ) {
 		$text = $1;
 	}
-	$poe_kernel->post( $irc => privmsg => $where => "$who: $text" );
+	$text =~ s/DCC send/cock badger/gi;
+	$poe_kernel->post( $irc => privmsg => $where => $text );
   }
   undef;
 }
@@ -227,21 +232,21 @@ sub _reply_ctcp_action {
   my ($self,$reply) = @_[OBJECT,ARG0];
 
   my $text = delete $reply->{reply};
+  $text = fix_text( $text );
   my $who = delete $reply->{_who};
   my $where = delete $reply->{_where};
   my $irc = delete $reply->{_irc};
   if ( $who and $where and ( uc( $where ) ne uc( "#" . $self->{nickname} ) ) ) {
-	my $key = "$where,$who";
+	my $key = "$irc,$where,$who";
 	my $last = delete $self->{fucktards}->{ $key };
 	$self->{fucktards}->{ $key } = time();
-	if ( $last and ( time() - $last < 60 ) ) {
-		return;
-	}
+	return if $last and ( time() - $last < 60 );
   }
   if ( $text and $who and $irc ) {
 	if ( $text =~ m/^.+?:\s(.*)$/i ) {
 		$text = $1;
 	}
+	$text =~ s/DCC send/cock badger/gi;
 	$poe_kernel->post( $irc => privmsg => $where => "$text" );
   }
   undef;
@@ -262,6 +267,16 @@ sub irc_public {
   undef;
 }
 
+sub irc_kick {
+  my $kickee = $_[ARG2];
+  my $channel = $_[ARG1];
+  my $mynick = $_[SENDER]->get_heap()->nick_name();
+  if ( u_irc( $kickee ) eq u_irc( $mynick ) ) {
+	$poe_kernel->post( $_[SENDER], 'join', $channel );
+  }
+  return;
+}
+
 sub irc_bot_addressed {
   my $who = ( split /!/, $_[ARG0] )[0];
   my $where = $_[ARG1]->[0];
@@ -277,7 +292,7 @@ sub irc_ctcp_action {
   my $addressed = $_[ARG1]->[0];
   my $what = $_[ARG2];
   my $event = '_blank';
-  my $mynick = $self->{nickname};
+  my $mynick = $_[SENDER]->get_heap()->nick_name();
 
   if ( $addressed !~ /^#/ ) {
 	$event = '_reply_notice';
@@ -300,6 +315,14 @@ sub S_qnet_authed {
     $irc->yield( join => $channel );
   }
   return PCI_EAT_NONE;
+}
+
+sub fix_text {
+  my $text = shift || return;
+  while ( length( $text ) > 500 ) {
+	$text = substr( $text, 0, rindex( $text, '.' ) );
+  }
+  return $text;
 }
 
 1;
