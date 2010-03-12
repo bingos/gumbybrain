@@ -4,16 +4,19 @@ Project GumbyBRAIN
 GumbyBRAIN started as a vague experiment to test POE::Component::AI::MegaHAL and to
 see if it was possible to write a self-loading POE::Component::IRC plugin.
 
+Somewhere along the road two crazy Icelandic folks reimplemented MegaHAL as Hailo.
+
+This is their story ....
+
 It is dependent on the following modules:
 
-POE::Component::IRC
-POE::Component::AI::MegaHAL
+Math::Random
+POE
+POE::Component::Hailo
+POE::Component::IRC::State
+POE::Component::IRC::Plugin::Hailo
 
 The best way to install these is through CPAN or CPANPLUS.
-
-More information about MegaHAL is available from:
-
-<http://megahal.alioth.debian.org/>
 
 There are some training files available at: 
 
