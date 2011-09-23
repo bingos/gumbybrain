@@ -36,7 +36,7 @@ sub spawn {
 
 
   foreach my $network ( keys %{ $self->{config} } ) {
-     $self->{irc}->{ $network } = POE::Component::IRC::State->spawn( alias => $network, nick => $self->{nickname}, server => $network, ircname => $self->{initial}, password => $self->{config}->{ $network }->{password} ); 
+     $self->{irc}->{ $network } = POE::Component::IRC::State->spawn( alias => $network, nick => $self->{nickname}, server => $network, ircname => $self->{initial}, password => $self->{config}->{ $network }->{password}, %$settings); 
   }
 
   POE::Session->create(

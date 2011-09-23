@@ -59,7 +59,7 @@ The basic format of the hashref in genconfig.pl is:
   'settings' => { nick => 'botnickname' },
 }
 
-Each key is an irc server address. The 'settings' key MUST contain a nickname for the bot.
+Each key is an irc server address. The 'settings' key MUST contain a nickname for the bot. Other option keys include 'port', 'UseSSL.'
 
 If the irc server is a quakenet.org server, then you'll probably need to also specify 'qauth' and 'qpass'
 values for authenticating with Qnet's Q bot.
@@ -67,6 +67,10 @@ values for authenticating with Qnet's Q bot.
 perl genconfig.pl
 
 This should create the necessary GumbyBRAIN.sto file to enable booting.
+
+perl train.pl < megahal.trn
+
+This will do the initial training of the bot.
 
 perl bootstrap.pl 
 

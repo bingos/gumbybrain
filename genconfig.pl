@@ -16,6 +16,8 @@ my $hashref = { 'irc.network.local' =>
 		  {
 			nick => "Flibble$$",
 #			localaddr => 'whatever',
+#			port => 6697,
+#			UseSSL => 1,
 		  },
 		};
 
