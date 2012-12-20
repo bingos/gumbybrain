@@ -41,6 +41,7 @@ sub _error {
 
 sub _input {
   my ($heap,$input) = @_[HEAP,ARG0];
+  return if $input =~ m!^#!;
   $poe_kernel->post( 'hailo', 'learn', [$input] );
   return;
 }
